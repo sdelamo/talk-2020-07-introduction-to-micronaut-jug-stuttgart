@@ -1,0 +1,5 @@
+micronaut:
+  application:
+    name: jugstuttgart
+greeting:
+  prefix: 'Hello'

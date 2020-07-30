@@ -1,0 +1,101 @@
+plugins {
+    id "com.github.pivotalservices.cf-app" version "2.3.0-rc.2"
+    id "com.diffplug.eclipse.apt" version "3.22.0"
+    id "groovy"
+    id "com.github.johnrengelman.shadow" version "6.0.0"
+    id "application"
+}
+
+version "0.1"
+group "org.example"
+
+repositories {
+    mavenCentral()
+    jcenter()
+}
+
+configurations {
+    // for dependencies that are needed for development only
+    developmentOnly
+}
+
+dependencies {
+    annotationProcessor(platform("io.micronaut:micronaut-bom:$micronautVersion"))
+    annotationProcessor("io.micronaut:micronaut-inject-java")
+    annotationProcessor("io.micronaut:micronaut-validation")
+    annotationProcessor("io.micronaut.configuration:micronaut-openapi")
+    implementation("io.swagger.core.v3:swagger-annotations")
+
+    compileOnly("org.graalvm.nativeimage:svm")
+
+    implementation(platform("io.micronaut:micronaut-bom:$micronautVersion"))
+    implementation("io.micronaut:micronaut-inject")
+    implementation("io.micronaut:micronaut-validation")
+    implementation("io.micronaut:micronaut-runtime")
+    implementation("io.micronaut:micronaut-http-server-netty")
+    implementation("io.micronaut:micronaut-http-client")
+    runtimeOnly("ch.qos.logback:logback-classic")
+    testImplementation(enforcedPlatform("io.micronaut:micronaut-bom:$micronautVersion"))
+    testImplementation("io.micronaut:micronaut-inject-groovy")
+    testImplementation("org.spockframework:spock-core") {
+        exclude group: "org.codehaus.groovy", module: "groovy-all"
+    }
+    testImplementation("io.micronaut.test:micronaut-test-spock")
+}
+
+test.classpath += configurations.developmentOnly
+
+mainClassName = "org.example.Application"
+
+// use JUnit 5 platform
+test {
+    useJUnitPlatform()
+}
+
+java {
+    sourceCompatibility = JavaVersion.toVersion('1.8')
+    targetCompatibility = JavaVersion.toVersion('1.8')
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+    options.compilerArgs.addAll([
+            '-parameters',
+            // enables incremental compilation
+            '-Amicronaut.processing.incremental=true',
+            '-Amicronaut.processing.annotations=org.example.*',
+            "-Amicronaut.processing.group=$project.group",
+            "-Amicronaut.processing.module=$project.name",
+    ])
+}
+
+shadowJar {
+    mergeServiceFiles()
+}
+
+tasks.withType(JavaExec) {
+    classpath += configurations.developmentOnly
+    jvmArgs('-XX:TieredStopAtLevel=1', '-Dcom.sun.management.jmxremote')
+    if (gradle.startParameter.continuous) {
+        systemProperties(
+                'micronaut.io.watch.restart': 'true',
+                'micronaut.io.watch.enabled': 'true',
+                "micronaut.io.watch.paths": "src/main"
+        )
+    }
+}
+
+cfConfig {
+    ccHost = "api.run.pivotal.io"
+    ccUser = "xxx" // cloud foundry username - don't add this to Git
+    ccPassword = "yyy"// cloud foundry password' -don't add this to Git
+    name = "sample" // use your app name
+    org = "myorg.com" // cloud foundy org
+    space = "development" // cloud foundry space
+    filePath = "${buildDir}/libs/jugstuttgart-0.1-all.jar"
+    environment = [:]
+    services  = []
+    instances = 1
+    memory = 512
+}
+
